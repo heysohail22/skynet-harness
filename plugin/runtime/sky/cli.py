@@ -791,6 +791,27 @@ def cmd_ship(args) -> int:
     return EXIT_PROBLEM if problems else EXIT_OK
 
 
+def cmd_runs(args) -> int:
+    """List saved runs or show one run's recorded events."""
+    try:
+        if args.runs_action == "show":
+            for event in recorder.read_events(args.run_id):
+                print(json.dumps(event, ensure_ascii=False, sort_keys=True))
+            return EXIT_OK
+        records = recorder.list_records()
+    except recorder.RecordError as exc:
+        print(f"sky runs: {exc}", file=sys.stderr)
+        return EXIT_PROBLEM
+    if not records:
+        print("no run records")
+        return EXIT_OK
+    print("ID  ROLE  TASK  KB  OUTCOME")
+    for record in records:
+        print(f"{record['run_id']}  {record['role']}  {record['task']}  "
+              f"{record['kb']}  {record['outcome']}")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="sky",
@@ -891,6 +912,11 @@ def build_parser() -> argparse.ArgumentParser:
     sh = sub.add_parser("ship", help="render every pending intent, and run none")
     sh.add_argument("--directory", metavar="DIR")
     sh.set_defaults(func=cmd_ship)
+
+    rs = sub.add_parser("runs", help="list and show recorded runs")
+    rs.add_argument("runs_action", nargs="?", choices=["show"], default="list")
+    rs.add_argument("run_id", nargs="?", help="run ID for `show`")
+    rs.set_defaults(func=cmd_runs)
 
     h = sub.add_parser("host", help="package the rules for another coding agent")
     h.add_argument("host_name", choices=sorted(hosts.BUILDERS))

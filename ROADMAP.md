@@ -79,7 +79,7 @@ something new, open an issue with the *Propose a feature*; it gets an ID when ac
 
 | ID | Feature | Area | P | Size | Status | Owner |
 |---|---|---|---|---|---|---|
-| SH-030 | [`sky runs`: list and show run records](#sh-030) — *good first issue* | record | P1 | S | Ready | |
+| SH-030 | [`sky runs`: list and show run records](#sh-030) — *good first issue* | record | P1 | S | In progress | @heysohail22, 2026-10-13 |
 | SH-031 | [The ledger records every tool call](#sh-031) | record | P1 | S | In review | @arupmmi07, 2026-10-06 |
 | SH-032 | [No token left in the run record](#sh-032) | record | P1 | S | Ready | |
 | SH-033 | [Pending intents: done, archived, out of git](#sh-033) | broker | P1 | S | Ready | |

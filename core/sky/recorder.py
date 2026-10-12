@@ -18,6 +18,69 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+
+class RecordError(Exception):
+    """A run record is missing, malformed, or outside the run store."""
+
+
+def _events_path(run_dir: Path) -> Path:
+    path = run_dir / "events.jsonl"
+    if not path.is_file():
+        raise RecordError(f"run record has no events.jsonl: {run_dir.name}")
+    return path
+
+
+def read_events(run_id: str, *, root: Path | None = None) -> list[dict]:
+    """Read one run's JSONL events without allowing path traversal."""
+    if not run_id or Path(run_id).name != run_id or run_id in {".", ".."}:
+        raise RecordError(f"invalid run id: {run_id!r}")
+    runs_root = (root or (state_dir() / "runs")).resolve()
+    run_dir = (runs_root / run_id).resolve()
+    if run_dir.parent != runs_root:
+        raise RecordError(f"invalid run id: {run_id!r}")
+    if not run_dir.is_dir():
+        raise RecordError(f"run not found: {run_id}")
+    try:
+        path = _events_path(run_dir)
+    except FileNotFoundError:
+        raise RecordError(f"run not found: {run_id}") from None
+    events = []
+    try:
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise RecordError(f"malformed event at line {line_number}: {exc.msg}") from None
+            if not isinstance(event, dict) or not isinstance(event.get("kind"), str):
+                raise RecordError(f"malformed event at line {line_number}: expected an object with kind")
+            events.append(event)
+    except OSError as exc:
+        raise RecordError(f"cannot read run {run_id}: {exc}") from None
+    return events
+
+
+def list_records(*, root: Path | None = None) -> list[dict]:
+    """Return readable summaries for all valid run directories, newest first."""
+    runs_root = (root or (state_dir() / "runs")).resolve()
+    if not runs_root.is_dir():
+        return []
+    summaries = []
+    for directory in runs_root.iterdir():
+        if not directory.is_dir():
+            continue
+        events = read_events(directory.name, root=runs_root)
+        start = next((event for event in events if event["kind"] == "run.start"), {})
+        finish = next((event for event in reversed(events) if event["kind"] == "run.finish"), None)
+        summaries.append({
+            "run_id": directory.name,
+            "role": start.get("role", "?"),
+            "task": start.get("task", "?"),
+            "kb": start.get("kb", "?"),
+            "outcome": finish.get("outcome", "unfinished") if finish else "unfinished",
+            "timestamp": events[0].get("t", 0) if events else 0,
+        })
+    return sorted(summaries, key=lambda item: (item["timestamp"], item["run_id"]), reverse=True)
+
 def state_dir() -> Path:
     """Resolved on every call, never at import.
 
